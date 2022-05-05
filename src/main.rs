@@ -2,7 +2,7 @@ mod model;
 mod render;
 mod selection;
 
-use crate::model::ProgressStore;
+use crate::model::{Ability, Map, ProgressStore};
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
@@ -21,14 +21,22 @@ use tui::{
     Frame, Terminal,
 };
 
-mod model;
-mod render;
+enum InputState {
+    Normal,
+    Edit(InputType, String),
+}
+
+enum InputType {
+    MapName,
+    AbilityName,
+}
 
 struct App<'a> {
     state: TableState,
     progress: ProgressStore,
     items: Vec<Vec<&'a str>>,
     ncols: usize,
+    input_state: InputState,
 }
 
 impl<'a> App<'a> {
@@ -41,6 +49,7 @@ impl<'a> App<'a> {
             },
             items: data,
             progress: ProgressStore::new("Progress".into()),
+            input_state: InputState::Normal,
         };
         app
     }
@@ -106,11 +115,34 @@ fn run_app<B: Backend>(terminal: &mut Terminal<B>, mut app: App) -> io::Result<(
         terminal.draw(|f| ui(f, &mut app))?;
 
         if let Event::Key(key) = event::read()? {
-            match key.code {
-                KeyCode::Char('q') => return Ok(()),
-                KeyCode::Down => app.next(),
-                KeyCode::Up => app.prev(),
-                _ => {}
+            match app.input_state {
+                InputState::Normal => match key.code {
+                    KeyCode::Char('q') => return Ok(()),
+                    KeyCode::Char('+') => {}
+                    KeyCode::Char('m') => {
+                        app.input_state = InputState::Edit(InputType::MapName, "".to_string())
+                    }
+                    KeyCode::Char('a') => {
+                        app.input_state = InputState::Edit(InputType::AbilityName, "".to_string())
+                    }
+                    KeyCode::Down => app.next(),
+                    KeyCode::Up => app.prev(),
+                    _ => {}
+                },
+                InputState::Edit(ref itype, ref mut buf) => match key.code {
+                    KeyCode::Char(c) => buf.push(c),
+                    KeyCode::Backspace => {
+                        buf.pop();
+                    }
+                    KeyCode::Enter => match itype {
+                        InputType::MapName => app.progress.new_map(Map::new(buf.clone())),
+                        InputType::AbilityName => {
+                            app.progress.new_ability(Ability::new(buf.clone()))
+                        }
+                    },
+                    KeyCode::Esc => app.input_state = InputState::Normal,
+                    _ => {}
+                },
             }
         }
     }
