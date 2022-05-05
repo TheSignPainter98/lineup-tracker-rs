@@ -1,8 +1,14 @@
+mod model;
+mod render;
+mod selection;
+
+use crate::model::ProgressStore;
 use crossterm::{
     event::{self, DisableMouseCapture, EnableMouseCapture, Event, KeyCode},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
+use std::collections::HashMap;
 use std::{
     error::Error,
     io::{self, stdout},
@@ -20,6 +26,7 @@ mod render;
 
 struct App<'a> {
     state: TableState,
+    progress: ProgressStore,
     items: Vec<Vec<&'a str>>,
     ncols: usize,
 }
@@ -33,6 +40,7 @@ impl<'a> App<'a> {
                 None => 0,
             },
             items: data,
+            progress: ProgressStore::new("Progress".into()),
         };
         app
     }
@@ -114,10 +122,8 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
         .margin(4)
         .split(f.size());
 
-    let style_selected = Style::default()
-        .add_modifier(Modifier::REVERSED);
-    let style_normal = Style::default()
-        .fg(Colour::Blue);
+    let style_selected = Style::default().add_modifier(Modifier::REVERSED);
+    let style_normal = Style::default().fg(Colour::Blue);
     let style_header = Style::default()
         .fg(Colour::White)
         .add_modifier(Modifier::BOLD);
@@ -136,10 +142,13 @@ fn ui<B: Backend>(f: &mut Frame<B>, app: &mut App) {
             .unwrap_or(0)
             + 1;
         let cells = item.iter().map(|c| Cell::from(*c));
-        Row::new(cells).height(height as u16).bottom_margin(1).style(style_normal)
+        Row::new(cells)
+            .height(height as u16)
+            .bottom_margin(1)
+            .style(style_normal)
     });
 
-    let widths = [ Constraint::Percentage(100 / app.ncols as u16) ].repeat(app.ncols);
+    let widths = [Constraint::Percentage(100 / app.ncols as u16)].repeat(app.ncols);
     let t = Table::new(rows)
         .header(header)
         .block(Block::default().borders(Borders::ALL).title("Progress"))
