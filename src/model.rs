@@ -182,9 +182,45 @@ impl ProgressStore {
         a.add_usage(u);
     }
 
-    pub fn get_target(&mut self, m: &String, z: &String, a: &String, u: &String) -> Option<&mut Target> {
+    pub fn get_map(&self, mname: &String) -> Option<&Map> {
+        for m in &self.maps {
+            if m.name == *mname {
+                return Some(&m);
+            }
+        }
+        None
+    }
+
+    pub fn get_zone<'a>(&self, m: &'a Map, zname: &String) -> Option<&'a Zone> {
+        for z in &m.zones {
+            if z.name == *zname {
+                return Some(&z);
+            }
+        }
+        None
+    }
+
+    pub fn get_ability(&self, aname: &String) -> Option<&Ability> {
+        for a in &self.abilities {
+            if a.name == *aname {
+                return Some(&a);
+            }
+        }
+        None
+    }
+
+    pub fn get_usage<'a>(&self, a: &'a Ability, uname: &String) -> Option<&'a Usage> {
+        for u in &a.usages {
+            if u.name == *uname {
+                return Some(&u);
+            }
+        }
+        None
+    }
+
+    pub fn get_target(&mut self, m: &Map, z: &Zone, a: &Ability, u: &Usage) -> Option<&mut Target> {
         self.progress.get_mut(&(
-                m.clone(), z.clone(), a.clone(), u.clone()
+                m.name.clone(), z.name.clone(), a.name.clone(), u.name.clone()
         ))
     }
 }
