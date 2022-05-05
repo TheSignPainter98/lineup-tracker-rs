@@ -12,6 +12,10 @@ Cargo.lock
 # Vim things
 *.swp
 
+# taghl things
+tags
+types_*.taghl
+
 # Added by cargo
 
 /target
