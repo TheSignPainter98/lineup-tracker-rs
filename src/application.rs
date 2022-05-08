@@ -5,9 +5,10 @@ use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
     style::{Color as Colour, Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table, TableState},
+    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
     Frame, Terminal,
 };
+use unicode_width::UnicodeWidthStr;
 
 enum InputType {
     MapName,
@@ -16,9 +17,14 @@ enum InputType {
     UsageName,
 }
 
+enum InputOp {
+    New,
+    Remove,
+}
+
 enum InputState {
     Normal,
-    Edit(InputType, String),
+    Edit(InputType, InputOp, String),
 }
 
 pub struct App<'a> {
@@ -53,36 +59,66 @@ impl<'a> App<'a> {
                     InputState::Normal => match key.code {
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('+') => {}
+                        KeyCode::Char('M') => {
+                            self.input_state =
+                                InputState::Edit(InputType::MapName, InputOp::Remove, "".to_string())
+                        }
+                        KeyCode::Char('Z') => {
+                            self.input_state =
+                                InputState::Edit(InputType::ZoneName, InputOp::Remove, "".to_string())
+                        }
+                        KeyCode::Char('A') => {
+                            self.input_state = InputState::Edit(
+                                InputType::AbilityName,
+                                InputOp::New,
+                                "".to_string(),
+                            )
+                        }
+                        KeyCode::Char('U') => {
+                            self.input_state =
+                                InputState::Edit(InputType::UsageName, InputOp::Remove, "".to_string())
+                        }
                         KeyCode::Char('m') => {
-                            self.input_state = InputState::Edit(InputType::MapName, "".to_string())
+                            self.input_state =
+                                InputState::Edit(InputType::MapName, InputOp::New, "".to_string())
                         }
                         KeyCode::Char('z') => {
-                            self.input_state = InputState::Edit(InputType::ZoneName, "".to_string())
+                            self.input_state =
+                                InputState::Edit(InputType::ZoneName, InputOp::New, "".to_string())
                         }
                         KeyCode::Char('a') => {
-                            self.input_state =
-                                InputState::Edit(InputType::AbilityName, "".to_string())
+                            self.input_state = InputState::Edit(
+                                InputType::AbilityName,
+                                InputOp::New,
+                                "".to_string(),
+                            )
                         }
                         KeyCode::Char('u') => {
-                            self.input_state = InputState::Edit(InputType::UsageName, "".to_string())
+                            self.input_state = InputState::Edit(
+                                InputType::UsageName,
+                                InputOp::New,
+                                "".to_string(),
+                            )
                         }
                         KeyCode::Down => self.next(),
                         KeyCode::Up => self.prev(),
                         _ => {}
                     },
-                    InputState::Edit(ref itype, ref mut buf) => match key.code {
+                    InputState::Edit(ref itype, ref op, ref mut buf) => match key.code {
                         KeyCode::Char(c) => buf.push(c),
                         KeyCode::Backspace => {
                             buf.pop();
                         }
-                        KeyCode::Enter => match itype {
-                            InputType::MapName => self.progress.new_map(Map::new(buf.clone())),
-                            InputType::ZoneName => {}
-                            InputType::AbilityName => {
-                                self.progress.new_ability(Ability::new(buf.clone()))
-                            }
-                            InputType::UsageName => {}
-                        },
+                        KeyCode::Enter => {
+                            match (op, itype) {
+                                (InputOp::New, InputType::MapName) => self.progress.new_map(Map::new(buf.clone())),
+                                (InputOp::New, InputType::ZoneName) => {}, // TODO: implement zone addition
+                                (InputOp::New, InputType::AbilityName) => self.progress.new_ability(Ability::new(buf.clone())),
+                                (InputOp::New, InputType::UsageName) => {}, // TODO: implement zone addition
+                                (InputOp::Remove, _) => {}, // TODO: implement removal
+                            };
+                            self.input_state = InputState::Normal
+                        }
                         KeyCode::Esc => self.input_state = InputState::Normal,
                         _ => {}
                     },
@@ -92,9 +128,15 @@ impl<'a> App<'a> {
     }
 
     pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>) {
+        let rect_constraints;
+        if let InputState::Edit(_, _, _) = self.input_state {
+            rect_constraints = [Constraint::Percentage(95), Constraint::Min(1)].as_ref();
+        } else {
+            rect_constraints = [Constraint::Percentage(100)].as_ref();
+        }
         let rects = Layout::default()
-            .constraints([Constraint::Percentage(100)].as_ref())
             .margin(4)
+            .constraints(rect_constraints)
             .split(f.size());
 
         let style_selected = Style::default().add_modifier(Modifier::REVERSED);
@@ -131,6 +173,23 @@ impl<'a> App<'a> {
             .highlight_symbol(">> ")
             .widths(&widths);
         f.render_stateful_widget(t, rects[0], &mut self.state);
+
+        if let InputState::Edit(t, o, s) = &self.input_state {
+            let mut box_name = match o {
+                InputOp::New => "New ",
+                InputOp::Remove => "Remove ",
+            }.to_string();
+            box_name.push_str(match t {
+                InputType::MapName => "Map",
+                InputType::ZoneName => "Zone",
+                InputType::AbilityName => "Ability",
+                InputType::UsageName => "Usage",
+            });
+            let input_box = Paragraph::new(s.as_ref())
+                .block(Block::default().borders(Borders::ALL).title(box_name));
+            f.render_widget(input_box, rects[1]);
+            f.set_cursor(rects[1].x + s.width() as u16 + 1, rects[1].y + 1)
+        }
     }
 
     fn next(&mut self) {
