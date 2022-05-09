@@ -12,7 +12,7 @@ use crossterm::{
 use std::io::{stdout, Result};
 use tui::{backend::CrosstermBackend, Terminal};
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<()> {
     enable_raw_mode()?;
 
     let mut stdout = stdout();
@@ -31,9 +31,5 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
     terminal.show_cursor()?;
 
-    if let Err(err) = res {
-        println!("{:?}", err);
-    }
-
-    Ok(())
+    res
 }
