@@ -1,4 +1,4 @@
-use crate::model::Nameable;
+use crate::model::{Nameable, Ability, Map, Zone};
 
 #[derive(Debug)]
 pub struct Selection {
@@ -18,18 +18,21 @@ impl Selection {
         }
     }
 
-    // pub fn incr_targets(&mut self, p: ProgressStore) -> Result<()> {
-    //     match (&self.map, &self.zone, &self.ability, &self.usage) {
-    //         (Some(mname), Some(zname), Some(aname), Some(uname)) => {
-    //             let m = p.get_map(mname);
-    //             match p.get_target(m, z, a, u) {
-    //                 Some(ref mut t) => Ok(()),
-    //                 None => Err(Error::new(ErrorKind::Other, "Unknown combo of maps, zone, ability and utility? You shouldn't be seeing this.")),
-    //             }
-    //         },
-    //         _ => Err(Error::new(ErrorKind::Other, "Must select a map, zone, ability and usage first!")),
-    //     }
-    // }
+    pub fn normalise(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
+        if let Some(map) = &self.map {
+            if let (Some(zone), Some(m)) = (&self.zone, map.get_selected(maps)) {
+                self.zone = zone.normalised(&m.zones);
+            }
+            self.map = map.normalised(maps);
+        }
+
+        if let Some(ability) = &self.ability {
+            if let (Some(usage), Some(a)) = (&self.usage, ability.get_selected(abilities)) {
+                self.usage = usage.normalised(&a.usages);
+            }
+            self.ability = ability.normalised(abilities);
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -51,30 +54,63 @@ impl Selector {
         S: Nameable,
         // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
     {
-        match &self {
-            Selector::Name(name) => {
-                for u in vs {
-                    if u.name() == name {
-                        return Some(&u);
-                    }
-                }
-                None
-            }
-            Selector::Index(idx) => vs.get(*idx)
+        self.get_selected_idx(vs).map(|i| &vs[i])
+    }
+
+    pub fn get_selected_mut<'a, S>(&self, vs: &'a mut Vec<S>) -> Option<&'a mut S>
+    where
+        S: Nameable,
+        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
+    {
+        self.get_selected_idx(vs).map(|i| &mut vs[i])
+    }
+
+    pub fn to_index<S>(&self, vs: &Vec<S>) -> Option<Self>
+    where
+        S: Nameable,
+        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
+    {
+        match self {
+            Selector::Index(i) => match self.get_selected_idx(vs) {
+                Some(_) => Some(Selector::Index(*i)),
+                _ => None,
+            },
+            _ => match self.get_selected_idx(vs) {
+                Some(i) => Some(Selector::Index(i)),
+                _ => None,
+            },
         }
     }
 
-    pub fn get_selected_mut<'a, S>(&self, vs: &'a mut Vec<S>) -> Option<&'a mut S> where S : Nameable {
-        match &self {
+    fn get_selected_idx<S>(&self, vs: &Vec<S>) -> Option<usize>
+    where
+        S: Nameable,
+        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
+    {
+        match self {
             Selector::Name(name) => {
-                for u in vs {
+                for (i, u) in vs.iter().enumerate() {
                     if u.name() == name {
-                        return Some(u)
+                        return Some(i);
                     }
                 }
                 None
             }
-            Selector::Index(idx) => vs.get_mut(*idx)
+            Selector::Index(idx) => {
+                if *idx <= vs.len() {
+                    Some(*idx)
+                } else {
+                    None
+                }
+            }
         }
+    }
+
+    pub fn normalised<S>(&self, vs: &Vec<S>) -> Option<Selector>
+    where
+        S: Nameable,
+        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
+    {
+        self.get_selected_idx(vs).map(|i| Selector::Index(i))
     }
 }

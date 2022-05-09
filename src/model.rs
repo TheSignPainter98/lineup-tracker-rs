@@ -231,7 +231,35 @@ impl ProgressStore {
         }
     }
 
-    pub fn get_target(&mut self, sel: &Selection) -> Option<&mut Target> {
+    pub fn get_target(&self, sel: &Selection) -> Option<&Target> {
+        match sel {
+            Selection {
+                map: Some(msel),
+                zone: Some(zsel),
+                ability: Some(asel),
+                usage: Some(usel),
+            } => {
+                // TODO: this assumes that the indices still match up!
+                match (msel.get_selected(&self.maps), asel.get_selected(&self.abilities)) {
+                    (Some(map), Some(ability)) => {
+                        match (zsel.get_selected(&map.zones), usel.get_selected(&ability.usages)) {
+                            (Some(zone), Some(usage)) => self.progress.get(&(
+                                map.name.clone(),
+                                zone.name.clone(),
+                                ability.name.clone(),
+                                usage.name.clone(),
+                            )),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_target_mut(&mut self, sel: &Selection) -> Option<&mut Target> {
         match sel {
             Selection {
                 map: Some(msel),

@@ -1,4 +1,5 @@
 use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
+use crate::render::{Renderable};
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode};
 use std::io;
@@ -34,7 +35,6 @@ pub struct App<'a> {
     state: TableState,
     pub progress: ProgressStore,
     items: Vec<Vec<&'a str>>,
-    ncols: usize,
     input_state: InputState,
     selection: Selection,
 }
@@ -43,10 +43,6 @@ impl<'a> App<'a> {
     pub fn new(data: Vec<Vec<&'a str>>) -> App<'a> {
         let app = App {
             state: TableState::default(),
-            ncols: match data.get(0) {
-                Some(row) => row.len(),
-                None => 0,
-            },
             items: data,
             progress: ProgressStore::new("Progress".into()),
             input_state: InputState::Normal,
@@ -125,49 +121,44 @@ impl<'a> App<'a> {
                             match op {
                                 (InputOp::New, InputSubject::MapName) => {
                                     self.progress.add_map(Map::new(buf.clone()));
-                                    self.selection.map = Some(Selector::new(buf.clone()));
+                                    self.selection.map = Some(Selector::Name(buf.clone()));
                                     self.selection.zone = None;
                                 }
                                 (InputOp::New, InputSubject::ZoneName) => {
                                     if let Some(mi) = &self.selection.map {
-                                        let zone_selector = Selector::new(buf.clone());
+                                        let zone_selector = Selector::Name(buf.clone());
                                         let zone = Zone::new(buf.clone());
                                         self.progress.add_zone(&mi, &zone_selector);
                                         self.selection.zone = Some(zone_selector);
 
-                                        if let Some(map) = mi.get_selected_mut::<Map>(&mut self.progress.maps) {
+                                        if let Some(map) =
+                                            mi.get_selected_mut::<Map>(&mut self.progress.maps)
+                                        {
                                             map.add_zone(zone);
                                         }
-                                    } else {
-                                        println!("No map!");
                                     }
                                 }
                                 (InputOp::New, InputSubject::AbilityName) => {
                                     self.progress.add_ability(Ability::new(buf.clone()));
-                                    self.selection.ability = Some(Selector::new(buf.clone()));
+                                    self.selection.ability = Some(Selector::Name(buf.clone()));
                                     self.selection.usage = None;
                                 }
                                 (InputOp::New, InputSubject::UsageName) => {
                                     if let Some(asel) = &self.selection.ability {
-                                        let usage_selector = Selector::new(buf.clone());
+                                        let usage_selector = Selector::Name(buf.clone());
                                         let usage = Usage::new(buf.clone());
                                         self.progress.add_usage(&asel, &usage_selector);
                                         self.selection.usage = Some(usage_selector);
 
-                                        if let Some(ability) = asel.get_selected_mut(&mut self.progress.abilities) {
+                                        if let Some(ability) =
+                                            asel.get_selected_mut(&mut self.progress.abilities)
+                                        {
                                             ability.add_usage(usage);
                                         }
                                     }
                                 }
                                 (InputOp::Remove, _) => {} // TODO: implement removal
                             };
-                            println!(
-                                "Current input state is {:?} {:?} {:?} {:?}",
-                                self.selection.map,
-                                self.selection.zone,
-                                self.selection.ability,
-                                self.selection.usage
-                                );
                             self.input_state = InputState::Normal;
                         }
                         KeyCode::Esc => self.input_state = InputState::Normal,
@@ -190,40 +181,13 @@ impl<'a> App<'a> {
             .constraints(rect_constraints)
             .split(f.size());
 
-        let style_selected = Style::default().add_modifier(Modifier::REVERSED);
-        let style_normal = Style::default().fg(Colour::Blue);
-        let style_header = Style::default()
-            .fg(Colour::White)
-            .add_modifier(Modifier::BOLD);
-        let header_cells = ["Head1", "Head2", "Head3"]
-            .iter()
-            .map(|h| Cell::from(*h).style(style_header));
-        let header = Row::new(header_cells)
-            .style(style_normal)
-            .height(1)
-            .bottom_margin(1);
-        let rows = self.items.iter().map(|item| {
-            let height = item
-                .iter()
-                .map(|content| content.chars().filter(|c| *c == '\n').count())
-                .max()
-                .unwrap_or(0)
-                + 1;
-            let cells = item.iter().map(|c| Cell::from(*c));
-            Row::new(cells)
-                .height(height as u16)
-                .bottom_margin(1)
-                .style(style_normal)
-        });
-
-        let widths = [Constraint::Percentage(100 / self.ncols as u16)].repeat(self.ncols);
-        let t = Table::new(rows)
-            .header(header)
-            .block(Block::default().borders(Borders::ALL).title("Progress"))
-            .highlight_style(style_selected)
-            .highlight_symbol(">> ")
-            .widths(&widths);
-        f.render_stateful_widget(t, rects[0], &mut self.state);
+        let (ncols, mut table) = self.progress.render();
+        let widths;
+        if ncols != 0 {
+            widths = [Constraint::Percentage(100 / ncols as u16)].repeat(ncols);
+            table = table.widths(&widths);
+        }
+        f.render_stateful_widget(table, rects[0], &mut self.state);
 
         if let InputState::Edit(t, s) = &self.input_state {
             let mut box_name = match t {
