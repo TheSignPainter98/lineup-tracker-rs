@@ -60,7 +60,7 @@ impl Nameable for Zone {
     }
 }
 
-#[derive(Eq)]
+#[derive(Eq, Debug)]
 pub struct Ability {
     pub name: String,
     pub usages: Vec<Usage>,
@@ -97,7 +97,7 @@ impl Hash for Ability {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub struct Usage {
     pub name: String,
 }
@@ -114,6 +114,7 @@ impl Nameable for Usage {
     }
 }
 
+#[derive(Debug)]
 pub struct Target {
     pub progress: i32,
     pub target: i32,
@@ -135,7 +136,7 @@ impl Target {
         self.target = 0;
     }
 
-    pub fn match_progress_tp_target(&mut self) {
+    pub fn match_progress_to_target(&mut self) {
         self.progress = self.target;
     }
 

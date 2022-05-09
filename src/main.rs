@@ -5,11 +5,11 @@ mod selection;
 
 use crate::application::App;
 use crossterm::{
-    event::{DisableMouseCapture, EnableMouseCapture, },
+    event::{DisableMouseCapture, EnableMouseCapture},
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::{error::Error, io::stdout};
+use std::io::{stdout, Result};
 use tui::{backend::CrosstermBackend, Terminal};
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -20,8 +20,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let backend = CrosstermBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
 
-    let data = vec![vec!["Hello", "there", "world!"], vec!["How", "are", "you?"]];
-    let mut app = App::new(data);
+    let mut app = App::new();
     let res = app.run(&mut terminal);
 
     disable_raw_mode()?;

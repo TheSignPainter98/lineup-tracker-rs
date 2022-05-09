@@ -1,7 +1,6 @@
-use crate::model::{Ability, Map, Nameable, ProgressStore, Target, Usage, Zone};
+use crate::model::{Nameable, ProgressStore, Target};
 use crate::selection::{Selection, Selector};
 use tui::{
-    layout::Constraint,
     style::{Color as Colour, Style},
     widgets::{Block, Borders, Cell, Row, Table},
 };
@@ -21,22 +20,22 @@ where
 
 impl<'a> Renderable<Cell<'a>> for Target {
     fn render(&self) -> Cell<'a> {
-        let style = Style::default();
+        let mut style = Style::default();
         let txt: String;
 
         // Get text and styling
         if self.target == 0 {
-            style.fg(Colour::Blue);
             txt = "-".into();
+            style = style.fg(Colour::Blue);
         } else {
             txt = format!("{}/{}", self.progress, self.target);
-            if self.target <= self.progress {
-                style.fg(Colour::Green);
-            } else if self.target >> 2 <= self.progress {
-                style.fg(Colour::Yellow);
+            style = style.fg(if self.target <= self.progress {
+                Colour::Green
+            } else if self.target >> 1 <= self.progress {
+                Colour::Yellow
             } else {
-                style.fg(Colour::Red);
-            }
+                Colour::Red
+            })
         };
 
         Cell::from(txt).style(style)

@@ -1,13 +1,12 @@
 use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
-use crate::render::{Renderable};
+use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode};
 use std::io;
 use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
-    style::{Color as Colour, Modifier, Style},
-    widgets::{Block, Borders, Cell, Paragraph, Row, Table, TableState},
+    widgets::{Block, Borders, Paragraph, TableState},
     Frame, Terminal,
 };
 use unicode_width::UnicodeWidthStr;
@@ -31,19 +30,17 @@ enum InputState {
     Edit(InputType, String),
 }
 
-pub struct App<'a> {
+pub struct App {
     state: TableState,
     pub progress: ProgressStore,
-    items: Vec<Vec<&'a str>>,
     input_state: InputState,
     selection: Selection,
 }
 
-impl<'a> App<'a> {
-    pub fn new(data: Vec<Vec<&'a str>>) -> App<'a> {
+impl App {
+    pub fn new() -> App {
         let app = App {
             state: TableState::default(),
-            items: data,
             progress: ProgressStore::new("Progress".into()),
             input_state: InputState::Normal,
             selection: Selection::new(),
@@ -59,54 +56,93 @@ impl<'a> App<'a> {
                 match self.input_state {
                     InputState::Normal => match key.code {
                         KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Char('+') => {}
+                        KeyCode::Char('+') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.change_progress(1));
+                        }
+                        KeyCode::Char('-') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.change_progress(-1));
+                        }
+                        KeyCode::Char('>') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.change_target(1));
+                        }
+                        KeyCode::Char('<') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.change_target(-1));
+                        }
+                        KeyCode::Char('(') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.match_target_to_progress());
+                        }
+                        KeyCode::Char(')') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.match_progress_to_target());
+                        }
+                        KeyCode::Char('{') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.zero_target());
+                        }
+                        KeyCode::Char('[') => {
+                            self.progress
+                                .get_target_mut(&self.selection)
+                                .map(|t| t.zero_progress());
+                        }
                         KeyCode::Char('M') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::Remove, InputSubject::MapName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('Z') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::Remove, InputSubject::ZoneName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('A') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::New, InputSubject::AbilityName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('U') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::Remove, InputSubject::UsageName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('m') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::New, InputSubject::MapName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('z') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::New, InputSubject::ZoneName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('a') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::New, InputSubject::AbilityName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Char('u') => {
                             self.input_state = InputState::Edit(
                                 (InputOp::New, InputSubject::UsageName),
                                 "".to_string(),
-                                )
+                            )
                         }
                         KeyCode::Down => self.next(),
                         KeyCode::Up => self.prev(),
@@ -128,14 +164,15 @@ impl<'a> App<'a> {
                                     if let Some(mi) = &self.selection.map {
                                         let zone_selector = Selector::Name(buf.clone());
                                         let zone = Zone::new(buf.clone());
-                                        self.progress.add_zone(&mi, &zone_selector);
-                                        self.selection.zone = Some(zone_selector);
 
                                         if let Some(map) =
                                             mi.get_selected_mut::<Map>(&mut self.progress.maps)
                                         {
                                             map.add_zone(zone);
                                         }
+
+                                        self.progress.add_zone(&mi, &zone_selector);
+                                        self.selection.zone = Some(zone_selector);
                                     }
                                 }
                                 (InputOp::New, InputSubject::AbilityName) => {
@@ -147,14 +184,15 @@ impl<'a> App<'a> {
                                     if let Some(asel) = &self.selection.ability {
                                         let usage_selector = Selector::Name(buf.clone());
                                         let usage = Usage::new(buf.clone());
-                                        self.progress.add_usage(&asel, &usage_selector);
-                                        self.selection.usage = Some(usage_selector);
 
                                         if let Some(ability) =
                                             asel.get_selected_mut(&mut self.progress.abilities)
                                         {
                                             ability.add_usage(usage);
                                         }
+
+                                        self.progress.add_usage(&asel, &usage_selector);
+                                        self.selection.usage = Some(usage_selector);
                                     }
                                 }
                                 (InputOp::Remove, _) => {} // TODO: implement removal
@@ -177,7 +215,7 @@ impl<'a> App<'a> {
             rect_constraints = [Constraint::Percentage(100)].as_ref();
         }
         let rects = Layout::default()
-            .margin(4)
+            .margin(1)
             .constraints(rect_constraints)
             .split(f.size());
 

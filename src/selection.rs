@@ -1,4 +1,4 @@
-use crate::model::{Nameable, Ability, Map, Zone};
+use crate::model::{Nameable, Ability, Map};
 
 #[derive(Debug)]
 pub struct Selection {
@@ -56,23 +56,6 @@ impl Selector {
         // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
     {
         self.get_selected_idx(vs).map(|i| &mut vs[i])
-    }
-
-    pub fn to_index<S>(&self, vs: &Vec<S>) -> Option<Self>
-    where
-        S: Nameable,
-        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
-    {
-        match self {
-            Selector::Index(i) => match self.get_selected_idx(vs) {
-                Some(_) => Some(Selector::Index(*i)),
-                _ => None,
-            },
-            _ => match self.get_selected_idx(vs) {
-                Some(i) => Some(Selector::Index(i)),
-                _ => None,
-            },
-        }
     }
 
     fn get_selected_idx<S>(&self, vs: &Vec<S>) -> Option<usize>
