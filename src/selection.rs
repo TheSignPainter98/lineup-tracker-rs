@@ -42,13 +42,6 @@ pub enum Selector {
 }
 
 impl Selector {
-    pub fn new(s: String) -> Self {
-        match s.parse::<usize>() {
-            Ok(n) => Self::Index(n),
-            Err(_) => Self::Name(s),
-        }
-    }
-
     pub fn get_selected<'a, S>(&self, vs: &'a Vec<S>) -> Option<&'a S>
     where
         S: Nameable,
@@ -112,5 +105,14 @@ impl Selector {
         // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
     {
         self.get_selected_idx(vs).map(|i| Selector::Index(i))
+    }
+}
+
+impl From<String> for Selector {
+    fn from(s: String) -> Self {
+        match s.parse::<usize>() {
+            Ok(n) => Self::Index(n),
+            Err(_) => Self::Name(s),
+        }
     }
 }
