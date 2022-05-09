@@ -120,10 +120,10 @@ pub struct Target {
 }
 
 impl Target {
-    pub fn new(amt: Option<i32>, target: Option<i32>) -> Target {
+    pub fn new(progress: i32, target: i32) -> Target {
         Target {
-            progress: amt.unwrap_or(0),
-            target: target.unwrap_or(2),
+            progress,
+            target: target,
         }
     }
 
@@ -149,6 +149,15 @@ impl Target {
 
     pub fn change_target(&mut self, delta: i32) {
         self.target += delta;
+    }
+}
+
+impl Default for Target {
+    fn default() -> Self {
+        Target {
+            progress: 0,
+            target: 2,
+        }
     }
 }
 
@@ -194,7 +203,7 @@ impl ProgressStore {
                         a.name.clone(),
                         u.name.clone(),
                     ),
-                    Target::new(None, None),
+                    Target::default(),
                 );
             }
         }
@@ -225,7 +234,7 @@ impl ProgressStore {
                         a.name.clone(),
                         u.name.clone(),
                     ),
-                    Target::new(None, None),
+                    Target::default(),
                 );
             }
         }
