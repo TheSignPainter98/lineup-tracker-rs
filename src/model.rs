@@ -1,6 +1,7 @@
 use crate::selection::{Selection, Selector};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+use std::cmp::max;
 
 pub trait Nameable {
     fn name<'a>(&'a self) -> &'a String;
@@ -114,20 +115,13 @@ impl Nameable for Usage {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialise, Deserialise)]
 pub struct Target {
     pub progress: i32,
     pub target: i32,
 }
 
 impl Target {
-    pub fn new(progress: i32, target: i32) -> Target {
-        Target {
-            progress,
-            target: target,
-        }
-    }
-
     pub fn zero_progress(&mut self) {
         self.progress = 0;
     }
@@ -149,7 +143,7 @@ impl Target {
     }
 
     pub fn change_target(&mut self, delta: i32) {
-        self.target += delta;
+        self.target = max(self.target + delta, 0);
     }
 }
 
