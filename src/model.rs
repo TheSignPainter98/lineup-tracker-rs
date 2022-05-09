@@ -1,5 +1,10 @@
+use crate::selection::{Selection, Selector};
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
+
+pub trait Nameable {
+    fn name<'a>(&'a self) -> &'a String;
+}
 
 #[derive(Eq)]
 pub struct Map {
@@ -15,7 +20,7 @@ impl Map {
         }
     }
 
-    fn add_zone(&mut self, z: Zone) {
+    pub fn add_zone(&mut self, z: Zone) {
         self.zones.push(z)
     }
 }
@@ -32,6 +37,12 @@ impl Hash for Map {
     }
 }
 
+impl Nameable for Map {
+    fn name<'a>(&'a self) -> &'a String {
+        &self.name
+    }
+}
+
 #[derive(Eq, Hash, PartialEq)]
 pub struct Zone {
     pub name: String,
@@ -40,6 +51,12 @@ pub struct Zone {
 impl Zone {
     pub fn new(name: String) -> Self {
         Zone { name: name }
+    }
+}
+
+impl Nameable for Zone {
+    fn name<'a>(&'a self) -> &'a String {
+        &self.name
     }
 }
 
@@ -57,7 +74,7 @@ impl Ability {
         }
     }
 
-    fn add_usage(&mut self, u: Usage) {
+    pub fn add_usage(&mut self, u: Usage) {
         self.usages.push(u);
     }
 }
@@ -65,6 +82,12 @@ impl Ability {
 impl PartialEq for Ability {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
+    }
+}
+
+impl Nameable for Ability {
+    fn name<'a>(&'a self) -> &'a String {
+        &self.name
     }
 }
 
@@ -82,6 +105,12 @@ pub struct Usage {
 impl Usage {
     pub fn new(name: String) -> Usage {
         Usage { name: name }
+    }
+}
+
+impl Nameable for Usage {
+    fn name<'a>(&'a self) -> &'a String {
+        &self.name
     }
 }
 
@@ -140,11 +169,22 @@ impl ProgressStore {
         }
     }
 
-    pub fn new_map(&mut self, m: Map) {
+    pub fn add_map(&mut self, m: Map) {
         self.maps.push(m);
     }
 
-    pub fn new_zone(&mut self, m: &mut Map, z: Zone) {
+    pub fn add_zone(&mut self, map_sel: &Selector, zone_sel: &Selector) {
+        let mo = map_sel.get_selected(&self.maps);
+        if mo == None {
+            return;
+        }
+        let m = mo.unwrap();
+        let zo = zone_sel.get_selected(&m.zones);
+        if zo == None {
+            return;
+        }
+        let z = zo.unwrap();
+
         for a in &self.abilities {
             for u in &a.usages {
                 self.progress.insert(
@@ -158,14 +198,24 @@ impl ProgressStore {
                 );
             }
         }
-        m.add_zone(z);
     }
 
-    pub fn new_ability(&mut self, a: Ability) {
+    pub fn add_ability(&mut self, a: Ability) {
         self.abilities.push(a);
     }
 
-    pub fn new_usage(&mut self, a: &mut Ability, u: Usage) {
+    pub fn add_usage(&mut self, ability_sel: &Selector, usage_sel: &Selector) {
+        let ao = ability_sel.get_selected(&self.abilities);
+        if ao == None {
+            return
+        }
+        let a = ao.unwrap();
+        let uo = usage_sel.get_selected(&a.usages);
+        if uo == None {
+            return
+        }
+        let u = uo.unwrap();
+
         for m in &self.maps {
             for z in &m.zones {
                 self.progress.insert(
@@ -179,48 +229,33 @@ impl ProgressStore {
                 );
             }
         }
-        a.add_usage(u);
     }
 
-    pub fn get_map(&self, mname: &String) -> Option<&Map> {
-        for m in &self.maps {
-            if m.name == *mname {
-                return Some(&m);
+    pub fn get_target(&mut self, sel: &Selection) -> Option<&mut Target> {
+        match sel {
+            Selection {
+                map: Some(msel),
+                zone: Some(zsel),
+                ability: Some(asel),
+                usage: Some(usel),
+            } => {
+                // TODO: this assumes that the indices still match up!
+                match (msel.get_selected(&self.maps), asel.get_selected(&self.abilities)) {
+                    (Some(map), Some(ability)) => {
+                        match (zsel.get_selected(&map.zones), usel.get_selected(&ability.usages)) {
+                            (Some(zone), Some(usage)) => self.progress.get_mut(&(
+                                map.name.clone(),
+                                zone.name.clone(),
+                                ability.name.clone(),
+                                usage.name.clone(),
+                            )),
+                            _ => None,
+                        }
+                    }
+                    _ => None,
+                }
             }
+            _ => None,
         }
-        None
-    }
-
-    pub fn get_zone<'a>(&self, m: &'a Map, zname: &String) -> Option<&'a Zone> {
-        for z in &m.zones {
-            if z.name == *zname {
-                return Some(&z);
-            }
-        }
-        None
-    }
-
-    pub fn get_ability(&self, aname: &String) -> Option<&Ability> {
-        for a in &self.abilities {
-            if a.name == *aname {
-                return Some(&a);
-            }
-        }
-        None
-    }
-
-    pub fn get_usage<'a>(&self, a: &'a Ability, uname: &String) -> Option<&'a Usage> {
-        for u in &a.usages {
-            if u.name == *uname {
-                return Some(&u);
-            }
-        }
-        None
-    }
-
-    pub fn get_target(&mut self, m: &Map, z: &Zone, a: &Ability, u: &Usage) -> Option<&mut Target> {
-        self.progress.get_mut(&(
-                m.name.clone(), z.name.clone(), a.name.clone(), u.name.clone()
-        ))
     }
 }

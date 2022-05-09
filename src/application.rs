@@ -1,4 +1,5 @@
-use crate::model::{Ability, Map, ProgressStore};
+use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
+use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode};
 use std::io;
 use tui::{
@@ -10,7 +11,7 @@ use tui::{
 };
 use unicode_width::UnicodeWidthStr;
 
-enum InputType {
+enum InputSubject {
     MapName,
     ZoneName,
     AbilityName,
@@ -22,9 +23,11 @@ enum InputOp {
     Remove,
 }
 
+type InputType = (InputOp, InputSubject);
+
 enum InputState {
     Normal,
-    Edit(InputType, InputOp, String),
+    Edit(InputType, String),
 }
 
 pub struct App<'a> {
@@ -33,6 +36,7 @@ pub struct App<'a> {
     items: Vec<Vec<&'a str>>,
     ncols: usize,
     input_state: InputState,
+    selection: Selection,
 }
 
 impl<'a> App<'a> {
@@ -46,6 +50,7 @@ impl<'a> App<'a> {
             items: data,
             progress: ProgressStore::new("Progress".into()),
             input_state: InputState::Normal,
+            selection: Selection::new(),
         };
         app
     }
@@ -60,64 +65,110 @@ impl<'a> App<'a> {
                         KeyCode::Char('q') => return Ok(()),
                         KeyCode::Char('+') => {}
                         KeyCode::Char('M') => {
-                            self.input_state =
-                                InputState::Edit(InputType::MapName, InputOp::Remove, "".to_string())
+                            self.input_state = InputState::Edit(
+                                (InputOp::Remove, InputSubject::MapName),
+                                "".to_string(),
+                                )
                         }
                         KeyCode::Char('Z') => {
-                            self.input_state =
-                                InputState::Edit(InputType::ZoneName, InputOp::Remove, "".to_string())
+                            self.input_state = InputState::Edit(
+                                (InputOp::Remove, InputSubject::ZoneName),
+                                "".to_string(),
+                                )
                         }
                         KeyCode::Char('A') => {
                             self.input_state = InputState::Edit(
-                                InputType::AbilityName,
-                                InputOp::New,
+                                (InputOp::New, InputSubject::AbilityName),
                                 "".to_string(),
-                            )
+                                )
                         }
                         KeyCode::Char('U') => {
-                            self.input_state =
-                                InputState::Edit(InputType::UsageName, InputOp::Remove, "".to_string())
+                            self.input_state = InputState::Edit(
+                                (InputOp::Remove, InputSubject::UsageName),
+                                "".to_string(),
+                                )
                         }
                         KeyCode::Char('m') => {
-                            self.input_state =
-                                InputState::Edit(InputType::MapName, InputOp::New, "".to_string())
+                            self.input_state = InputState::Edit(
+                                (InputOp::New, InputSubject::MapName),
+                                "".to_string(),
+                                )
                         }
                         KeyCode::Char('z') => {
-                            self.input_state =
-                                InputState::Edit(InputType::ZoneName, InputOp::New, "".to_string())
+                            self.input_state = InputState::Edit(
+                                (InputOp::New, InputSubject::ZoneName),
+                                "".to_string(),
+                                )
                         }
                         KeyCode::Char('a') => {
                             self.input_state = InputState::Edit(
-                                InputType::AbilityName,
-                                InputOp::New,
+                                (InputOp::New, InputSubject::AbilityName),
                                 "".to_string(),
-                            )
+                                )
                         }
                         KeyCode::Char('u') => {
                             self.input_state = InputState::Edit(
-                                InputType::UsageName,
-                                InputOp::New,
+                                (InputOp::New, InputSubject::UsageName),
                                 "".to_string(),
-                            )
+                                )
                         }
                         KeyCode::Down => self.next(),
                         KeyCode::Up => self.prev(),
                         _ => {}
                     },
-                    InputState::Edit(ref itype, ref op, ref mut buf) => match key.code {
+                    InputState::Edit(ref op, ref mut buf) => match key.code {
                         KeyCode::Char(c) => buf.push(c),
                         KeyCode::Backspace => {
                             buf.pop();
                         }
                         KeyCode::Enter => {
-                            match (op, itype) {
-                                (InputOp::New, InputType::MapName) => self.progress.new_map(Map::new(buf.clone())),
-                                (InputOp::New, InputType::ZoneName) => {}, // TODO: implement zone addition
-                                (InputOp::New, InputType::AbilityName) => self.progress.new_ability(Ability::new(buf.clone())),
-                                (InputOp::New, InputType::UsageName) => {}, // TODO: implement zone addition
-                                (InputOp::Remove, _) => {}, // TODO: implement removal
+                            match op {
+                                (InputOp::New, InputSubject::MapName) => {
+                                    self.progress.add_map(Map::new(buf.clone()));
+                                    self.selection.map = Some(Selector::new(buf.clone()));
+                                    self.selection.zone = None;
+                                }
+                                (InputOp::New, InputSubject::ZoneName) => {
+                                    if let Some(mi) = &self.selection.map {
+                                        let zone_selector = Selector::new(buf.clone());
+                                        let zone = Zone::new(buf.clone());
+                                        self.progress.add_zone(&mi, &zone_selector);
+                                        self.selection.zone = Some(zone_selector);
+
+                                        if let Some(map) = mi.get_selected_mut::<Map>(&mut self.progress.maps) {
+                                            map.add_zone(zone);
+                                        }
+                                    } else {
+                                        println!("No map!");
+                                    }
+                                }
+                                (InputOp::New, InputSubject::AbilityName) => {
+                                    self.progress.add_ability(Ability::new(buf.clone()));
+                                    self.selection.ability = Some(Selector::new(buf.clone()));
+                                    self.selection.usage = None;
+                                }
+                                (InputOp::New, InputSubject::UsageName) => {
+                                    if let Some(asel) = &self.selection.ability {
+                                        let usage_selector = Selector::new(buf.clone());
+                                        let usage = Usage::new(buf.clone());
+                                        self.progress.add_usage(&asel, &usage_selector);
+                                        self.selection.usage = Some(usage_selector);
+
+                                        if let Some(ability) = asel.get_selected_mut(&mut self.progress.abilities) {
+                                            ability.add_usage(usage);
+                                        }
+                                    }
+                                }
+                                (InputOp::Remove, _) => {} // TODO: implement removal
                             };
-                            self.input_state = InputState::Normal
+                            println!(
+                                "Current input state is {:?} {:?} {:?} {:?}",
+                                self.selection.map,
+                                self.selection.zone,
+                                self.selection.ability,
+                                self.selection.usage
+                                );
+                            self.input_state = InputState::Normal;
                         }
                         KeyCode::Esc => self.input_state = InputState::Normal,
                         _ => {}
@@ -129,8 +180,8 @@ impl<'a> App<'a> {
 
     pub fn draw<B: Backend>(&mut self, f: &mut Frame<B>) {
         let rect_constraints;
-        if let InputState::Edit(_, _, _) = self.input_state {
-            rect_constraints = [Constraint::Percentage(95), Constraint::Min(1)].as_ref();
+        if let InputState::Edit(_, _) = self.input_state {
+            rect_constraints = [Constraint::Percentage(95), Constraint::Min(3)].as_ref();
         } else {
             rect_constraints = [Constraint::Percentage(100)].as_ref();
         }
@@ -174,16 +225,17 @@ impl<'a> App<'a> {
             .widths(&widths);
         f.render_stateful_widget(t, rects[0], &mut self.state);
 
-        if let InputState::Edit(t, o, s) = &self.input_state {
-            let mut box_name = match o {
-                InputOp::New => "New ",
-                InputOp::Remove => "Remove ",
-            }.to_string();
+        if let InputState::Edit(t, s) = &self.input_state {
+            let mut box_name = match t {
+                (InputOp::New, _) => "New ",
+                (InputOp::Remove, _) => "Remove ",
+            }
+            .to_string();
             box_name.push_str(match t {
-                InputType::MapName => "Map",
-                InputType::ZoneName => "Zone",
-                InputType::AbilityName => "Ability",
-                InputType::UsageName => "Usage",
+                (_, InputSubject::MapName) => "Map",
+                (_, InputSubject::ZoneName) => "Zone",
+                (_, InputSubject::AbilityName) => "Ability",
+                (_, InputSubject::UsageName) => "Usage",
             });
             let input_box = Paragraph::new(s.as_ref())
                 .block(Block::default().borders(Borders::ALL).title(box_name));
