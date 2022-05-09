@@ -31,7 +31,7 @@ impl<'a> Renderable<Cell<'a>> for Target {
             txt = format!("{}/{}", self.progress, self.target);
             style = style.fg(if self.target <= self.progress {
                 Colour::Green
-            } else if self.target >> 1 <= self.progress {
+            } else if self.target >> 1 <= self.progress.abs() {
                 Colour::Yellow
             } else {
                 Colour::Red
