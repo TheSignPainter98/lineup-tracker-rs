@@ -2,7 +2,8 @@ use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
 use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode};
-use std::io;
+use serde::{Deserialize as Deserialise, Serialize as Serialise};
+use std::io::{self, Write, Read};
 use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
@@ -37,15 +38,30 @@ pub struct App {
     selection: Selection,
 }
 
+#[derive(Serialise, Deserialise)]
+struct SaveState {
+    progress: ProgressStore,
+    selection: Selection,
+}
+
 impl App {
     pub fn new() -> App {
-        let app = App {
+        App {
             state: TableState::default(),
             progress: ProgressStore::new("Progress".into()),
             input_state: InputState::Normal,
             selection: Selection::new(),
-        };
-        app
+        }
+    }
+
+    pub fn load<R>(r: R) -> io::Result<Self> where R: Read {
+        let save_state: SaveState = serde_json::from_reader(r)?;
+        Ok(save_state.into())
+    }
+
+    pub fn save<W>(self, w: W) -> Result<(), serde_json::Error> where W: Write {
+        let save_state:SaveState = self.into();
+        serde_json::to_writer(w, &save_state)
     }
 
     pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
@@ -144,8 +160,10 @@ impl App {
                                 "".to_string(),
                             )
                         }
-                        KeyCode::Down => self.next(),
-                        KeyCode::Up => self.prev(),
+                        KeyCode::Right => self.next_usage(),
+                        KeyCode::Down => self.next_zone(),
+                        KeyCode::Up => self.prev_zone(),
+                        KeyCode::Left => self.prev_usage(),
                         _ => {}
                     },
                     InputState::Edit(ref op, ref mut buf) => match key.code {
@@ -272,5 +290,23 @@ impl App {
             None => 0,
         };
         self.state.select(Some(i));
+
+impl From<SaveState> for App {
+    fn from(s: SaveState) -> Self {
+        App {
+            state: TableState::default(),
+            progress: s.progress,
+            input_state: InputState::Normal,
+            selection: s.selection,
+        }
+    }
+}
+
+impl Into<SaveState> for App {
+    fn into(self) -> SaveState {
+        SaveState {
+            progress: self.progress,
+            selection: self.selection,
+        }
     }
 }

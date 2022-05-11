@@ -16,6 +16,9 @@ Cargo.lock
 tags
 types_*.taghl
 
+# Store files
+.progress*.json
+
 # Added by cargo
 
 /target

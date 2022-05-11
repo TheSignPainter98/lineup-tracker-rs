@@ -1,13 +1,15 @@
 use crate::selection::{Selection, Selector};
+use serde::{Deserialize as Deserialise, Serialize as Serialise};
+use serde_with::serde_as;
+use std::cmp::max;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
-use std::cmp::max;
 
 pub trait Nameable {
     fn name<'a>(&'a self) -> &'a String;
 }
 
-#[derive(Eq)]
+#[derive(Eq, Serialise, Deserialise)]
 pub struct Map {
     pub name: String,
     pub zones: Vec<Zone>,
@@ -44,7 +46,7 @@ impl Nameable for Map {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Eq, Hash, PartialEq, Serialise, Deserialise)]
 pub struct Zone {
     pub name: String,
 }
@@ -61,7 +63,7 @@ impl Nameable for Zone {
     }
 }
 
-#[derive(Eq, Debug)]
+#[derive(Eq, Debug, Serialise, Deserialise)]
 pub struct Ability {
     pub name: String,
     pub usages: Vec<Usage>,
@@ -98,7 +100,7 @@ impl Hash for Ability {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Debug)]
+#[derive(Eq, Hash, PartialEq, Debug, Serialise, Deserialise)]
 pub struct Usage {
     pub name: String,
 }
@@ -156,10 +158,13 @@ impl Default for Target {
     }
 }
 
+#[serde_as]
+#[derive(Serialise, Deserialise)]
 pub struct ProgressStore {
     pub name: String,
     pub maps: Vec<Map>,
     pub abilities: Vec<Ability>,
+    #[serde_as(as = "Vec<(_,_)>")]
     pub progress: HashMap<(String, String, String, String), Target>,
 }
 
@@ -211,12 +216,12 @@ impl ProgressStore {
     pub fn add_usage(&mut self, ability_sel: &Selector, usage_sel: &Selector) {
         let ao = ability_sel.get_selected(&self.abilities);
         if ao == None {
-            return
+            return;
         }
         let a = ao.unwrap();
         let uo = usage_sel.get_selected(&a.usages);
         if uo == None {
-            return
+            return;
         }
         let u = uo.unwrap();
 
@@ -244,9 +249,15 @@ impl ProgressStore {
                 usage: Some(usel),
             } => {
                 // TODO: this assumes that the indices still match up!
-                match (msel.get_selected(&self.maps), asel.get_selected(&self.abilities)) {
+                match (
+                    msel.get_selected(&self.maps),
+                    asel.get_selected(&self.abilities),
+                ) {
                     (Some(map), Some(ability)) => {
-                        match (zsel.get_selected(&map.zones), usel.get_selected(&ability.usages)) {
+                        match (
+                            zsel.get_selected(&map.zones),
+                            usel.get_selected(&ability.usages),
+                        ) {
                             (Some(zone), Some(usage)) => self.progress.get(&(
                                 map.name.clone(),
                                 zone.name.clone(),
@@ -272,9 +283,15 @@ impl ProgressStore {
                 usage: Some(usel),
             } => {
                 // TODO: this assumes that the indices still match up!
-                match (msel.get_selected(&self.maps), asel.get_selected(&self.abilities)) {
+                match (
+                    msel.get_selected(&self.maps),
+                    asel.get_selected(&self.abilities),
+                ) {
                     (Some(map), Some(ability)) => {
-                        match (zsel.get_selected(&map.zones), usel.get_selected(&ability.usages)) {
+                        match (
+                            zsel.get_selected(&map.zones),
+                            usel.get_selected(&ability.usages),
+                        ) {
                             (Some(zone), Some(usage)) => self.progress.get_mut(&(
                                 map.name.clone(),
                                 zone.name.clone(),
