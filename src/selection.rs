@@ -19,19 +19,35 @@ impl Selection {
         }
     }
 
-    pub fn normalise(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
+    pub fn make_absolute(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
         if let Some(map) = &self.map {
             if let (Some(zone), Some(m)) = (&self.zone, map.get_selected(maps)) {
-                self.zone = zone.normalised(&m.zones);
+                self.zone = zone.to_index(&m.zones);
             }
-            self.map = map.normalised(maps);
+            self.map = map.to_index(maps);
         }
 
         if let Some(ability) = &self.ability {
             if let (Some(usage), Some(a)) = (&self.usage, ability.get_selected(abilities)) {
-                self.usage = usage.normalised(&a.usages);
+                self.usage = usage.to_index(&a.usages);
             }
-            self.ability = ability.normalised(abilities);
+            self.ability = ability.to_index(abilities);
+        }
+    }
+
+    pub fn make_relative(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
+        if let Some(map) = &self.map {
+            if let (Some(zone), Some(m)) = (&self.zone, map.get_selected(maps)) {
+                self.zone = zone.to_name(&m.zones);
+            }
+            self.map = map.to_name(maps);
+        }
+
+        if let Some(ability) = &self.ability {
+            if let (Some(usage), Some(a)) = (&self.usage, ability.get_selected(abilities)) {
+                self.usage = usage.to_name(&a.usages);
+            }
+            self.ability = ability.to_name(abilities);
         }
     }
 }
@@ -74,7 +90,7 @@ impl Selector {
                 None
             }
             Selector::Index(idx) => {
-                if *idx <= vs.len() {
+                if *idx < vs.len() {
                     Some(*idx)
                 } else {
                     None
@@ -83,12 +99,26 @@ impl Selector {
         }
     }
 
-    pub fn normalised<S>(&self, vs: &Vec<S>) -> Option<Selector>
+    pub fn to_index<S>(&self, vs: &Vec<S>) -> Option<Selector>
     where
         S: Nameable,
         // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
     {
         self.get_selected_idx(vs).map(|i| Selector::Index(i))
+    }
+
+    pub fn to_name<S>(&self, vs: &Vec<S>) -> Option<Selector>
+    where
+        S: Nameable,
+        // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
+    {
+        self.get_selected_idx(vs).map(|i| Selector::Name(vs[i].name().clone()))
+    }
+}
+
+impl Default for Selector {
+    fn default() -> Self {
+        Selector::Index(0)
     }
 }
 

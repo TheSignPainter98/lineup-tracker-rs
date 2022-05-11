@@ -9,7 +9,7 @@ pub trait Nameable {
     fn name<'a>(&'a self) -> &'a String;
 }
 
-#[derive(Eq, Serialise, Deserialise)]
+#[derive(Debug, Eq, Serialise, Deserialise)]
 pub struct Map {
     pub name: String,
     pub zones: Vec<Zone>,
@@ -46,7 +46,7 @@ impl Nameable for Map {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Serialise, Deserialise)]
+#[derive(Debug, Eq, Hash, PartialEq, Serialise, Deserialise)]
 pub struct Zone {
     pub name: String,
 }

@@ -3,7 +3,7 @@ mod model;
 mod render;
 mod selection;
 
-use crate::application::App;
+use crate::application::{App, FinalAction};
 use crossterm::{
     event::{DisableMouseCapture, EnableMouseCapture},
     execute,
@@ -43,8 +43,10 @@ fn main() -> Result<()> {
     )?;
     terminal.show_cursor()?;
 
-    let f = File::create(&save_loc)?;
-    app.save(BufWriter::new(f))?;
+    if let Ok(FinalAction::Save) = res {
+        let f = File::create(&save_loc)?;
+        app.save(BufWriter::new(f))?;
+    }
 
-    res
+    res.map(|_| ())
 }

@@ -3,7 +3,7 @@ use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode};
 use serde::{Deserialize as Deserialise, Serialize as Serialise};
-use std::io::{self, Write, Read};
+use std::io::{self, Read, Write};
 use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
@@ -21,6 +21,7 @@ enum InputSubject {
 
 enum InputOp {
     New,
+    Select,
     Remove,
 }
 
@@ -29,6 +30,17 @@ type InputType = (InputOp, InputSubject);
 enum InputState {
     Normal,
     Edit(InputType, String),
+}
+
+impl InputState {
+    fn edit(i: InputOp, s: InputSubject) -> Self {
+        InputState::Edit((i, s), "".to_string())
+    }
+}
+
+pub enum FinalAction {
+    None,
+    Save,
 }
 
 pub struct App {
@@ -54,116 +66,122 @@ impl App {
         }
     }
 
-    pub fn load<R>(r: R) -> io::Result<Self> where R: Read {
+    pub fn load<R>(r: R) -> io::Result<Self>
+    where
+        R: Read,
+    {
         let save_state: SaveState = serde_json::from_reader(r)?;
         Ok(save_state.into())
     }
 
-    pub fn save<W>(self, w: W) -> Result<(), serde_json::Error> where W: Write {
-        let save_state:SaveState = self.into();
+    pub fn save<W>(self, w: W) -> Result<(), serde_json::Error>
+    where
+        W: Write,
+    {
+        let save_state: SaveState = self.into();
         serde_json::to_writer(w, &save_state)
     }
 
-    pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<()> {
+    pub fn run<B: Backend>(&mut self, terminal: &mut Terminal<B>) -> io::Result<FinalAction> {
         loop {
             terminal.draw(|f| self.draw(f))?;
 
             if let Event::Key(key) = event::read()? {
                 match self.input_state {
                     InputState::Normal => match key.code {
-                        KeyCode::Char('q') => return Ok(()),
-                        KeyCode::Char('+') => {
+                        KeyCode::Char('Q') => return Ok(FinalAction::Save),
+                        KeyCode::Char('!') => return Ok(FinalAction::None),
+                        KeyCode::Char('y') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.change_progress(1));
                         }
-                        KeyCode::Char('-') => {
+                        KeyCode::Char('Y') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.change_progress(-1));
                         }
-                        KeyCode::Char('>') => {
+                        KeyCode::Char('u') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.change_target(1));
                         }
-                        KeyCode::Char('<') => {
+                        KeyCode::Char('U') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.change_target(-1));
                         }
-                        KeyCode::Char('(') => {
+                        KeyCode::Char('I') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.match_target_to_progress());
                         }
-                        KeyCode::Char(')') => {
+                        KeyCode::Char('i') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.match_progress_to_target());
                         }
-                        KeyCode::Char('{') => {
+                        KeyCode::Char('o') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.zero_target());
                         }
-                        KeyCode::Char('[') => {
+                        KeyCode::Char('O') => {
                             self.progress
                                 .get_target_mut(&self.selection)
                                 .map(|t| t.zero_progress());
                         }
-                        KeyCode::Char('M') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::Remove, InputSubject::MapName),
-                                "".to_string(),
-                            )
+                        KeyCode::Char('q') => {
+                            self.input_state = InputState::edit(InputOp::New, InputSubject::MapName)
                         }
-                        KeyCode::Char('Z') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::Remove, InputSubject::ZoneName),
-                                "".to_string(),
-                            )
+                        KeyCode::Char('w') => {
+                            self.input_state =
+                                InputState::edit(InputOp::New, InputSubject::ZoneName)
                         }
-                        KeyCode::Char('A') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::New, InputSubject::AbilityName),
-                                "".to_string(),
-                            )
+                        KeyCode::Char('e') => {
+                            self.input_state =
+                                InputState::edit(InputOp::New, InputSubject::AbilityName)
                         }
-                        KeyCode::Char('U') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::Remove, InputSubject::UsageName),
-                                "".to_string(),
-                            )
-                        }
-                        KeyCode::Char('m') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::New, InputSubject::MapName),
-                                "".to_string(),
-                            )
-                        }
-                        KeyCode::Char('z') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::New, InputSubject::ZoneName),
-                                "".to_string(),
-                            )
+                        KeyCode::Char('r') => {
+                            self.input_state =
+                                InputState::edit(InputOp::New, InputSubject::UsageName)
                         }
                         KeyCode::Char('a') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::New, InputSubject::AbilityName),
-                                "".to_string(),
-                            )
+                            self.input_state =
+                                InputState::edit(InputOp::Select, InputSubject::MapName)
                         }
-                        KeyCode::Char('u') => {
-                            self.input_state = InputState::Edit(
-                                (InputOp::New, InputSubject::UsageName),
-                                "".to_string(),
-                            )
+                        KeyCode::Char('s') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Select, InputSubject::ZoneName)
                         }
-                        KeyCode::Right => self.next_usage(),
-                        KeyCode::Down => self.next_zone(),
-                        KeyCode::Up => self.prev_zone(),
-                        KeyCode::Left => self.prev_usage(),
+                        KeyCode::Char('d') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Select, InputSubject::AbilityName)
+                        }
+                        KeyCode::Char('f') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Select, InputSubject::UsageName)
+                        }
+                        KeyCode::Char('z') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Remove, InputSubject::MapName)
+                        }
+                        KeyCode::Char('x') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Remove, InputSubject::ZoneName)
+                        }
+                        KeyCode::Char('c') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Remove, InputSubject::AbilityName)
+                        }
+                        KeyCode::Char('v') => {
+                            self.input_state =
+                                InputState::edit(InputOp::Remove, InputSubject::UsageName)
+                        }
+                        KeyCode::Left | KeyCode::Char('h') => self.prev_usage(),
+                        KeyCode::Up | KeyCode::Char('j') => self.prev_zone(),
+                        KeyCode::Down | KeyCode::Char('k') => self.next_zone(),
+                        KeyCode::Right | KeyCode::Char('l') => self.next_usage(),
                         _ => {}
                     },
                     InputState::Edit(ref op, ref mut buf) => match key.code {
@@ -213,6 +231,15 @@ impl App {
                                         self.selection.usage = Some(usage_selector);
                                     }
                                 }
+                                (InputOp::Select, subject) => {
+                                    match subject {
+                                        InputSubject::MapName => self.selection.map = Some(buf.clone().into()),
+                                        InputSubject::ZoneName => self.selection.zone = Some(buf.clone().into()),
+                                        InputSubject::AbilityName => self.selection.ability = Some(buf.clone().into()),
+                                        InputSubject::UsageName => self.selection.usage = Some(buf.clone().into()),
+                                    };
+                                    self.selection.make_relative(&self.progress.maps, &self.progress.abilities);
+                                }
                                 (InputOp::Remove, _) => {} // TODO: implement removal
                             };
                             self.input_state = InputState::Normal;
@@ -248,6 +275,7 @@ impl App {
         if let InputState::Edit(t, s) = &self.input_state {
             let mut box_name = match t {
                 (InputOp::New, _) => "New ",
+                (InputOp::Select, _) => "Select ",
                 (InputOp::Remove, _) => "Remove ",
             }
             .to_string();
