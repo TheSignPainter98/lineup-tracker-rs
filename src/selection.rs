@@ -1,7 +1,7 @@
+use crate::model::{Ability, Map, Nameable};
 use serde::{Deserialize as Deserialise, Serialize as Serialise};
-use crate::model::{Nameable, Ability, Map};
 
-#[derive(Debug, Serialise, Deserialise)]
+#[derive(Eq, PartialEq, Debug, Serialise, Deserialise)]
 pub struct Selection {
     pub map: Option<Selector>,
     pub zone: Option<Selector>,
@@ -36,7 +36,7 @@ impl Selection {
     }
 }
 
-#[derive(Debug, Serialise, Deserialise)]
+#[derive(Eq, PartialEq, Debug, Serialise, Deserialise)]
 pub enum Selector {
     Index(usize),
     Name(String),

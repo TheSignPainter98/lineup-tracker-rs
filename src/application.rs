@@ -237,7 +237,7 @@ impl App {
             .constraints(rect_constraints)
             .split(f.size());
 
-        let (ncols, mut table) = self.progress.render();
+        let (ncols, mut table) = self.progress.render(&self.selection);
         let widths;
         if ncols != 0 {
             widths = [Constraint::Percentage(100 / ncols as u16)].repeat(ncols);

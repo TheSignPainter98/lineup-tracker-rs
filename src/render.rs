@@ -1,25 +1,25 @@
 use crate::model::{Nameable, ProgressStore, Target};
 use crate::selection::{Selection, Selector};
 use tui::{
-    style::{Color as Colour, Style},
+    style::{Color as Colour, Modifier, Style},
     widgets::{Block, Borders, Cell, Row, Table},
 };
 
-pub trait Renderable<T> {
-    fn render(&self) -> T;
+pub trait Renderable<T, Selector = bool> {
+    fn render(&self, selected: Selector) -> T;
 }
 
-impl<'a, T> Renderable<Cell<'a>> for T
+impl<'a, T> Renderable<Cell<'a>, ()> for T
 where
     T: Nameable,
 {
-    fn render(&self) -> Cell<'a> {
+    fn render(&self, _: ()) -> Cell<'a> {
         Cell::from(self.name().clone())
     }
 }
 
 impl<'a> Renderable<Cell<'a>> for Target {
-    fn render(&self) -> Cell<'a> {
+    fn render(&self, selected: bool) -> Cell<'a> {
         let mut style = Style::default();
         let txt: String;
 
@@ -38,12 +38,19 @@ impl<'a> Renderable<Cell<'a>> for Target {
             })
         };
 
+        if selected {
+            style = style
+                .fg(Colour::Black)
+                .bg(Colour::White)
+                .add_modifier(Modifier::BOLD);
+        }
+
         Cell::from(txt).style(style)
     }
 }
 
-impl<'a> Renderable<(usize, Table<'a>)> for ProgressStore {
-    fn render(&self) -> (usize, Table<'a>) {
+impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
+    fn render(&self, selected: &Selection) -> (usize, Table<'a>) {
         let mut primary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
         let mut secondary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
 
@@ -84,7 +91,7 @@ impl<'a> Renderable<(usize, Table<'a>)> for ProgressStore {
                             usage: Some(Selector::Name(u.name.clone())),
                         };
                         row.push(match self.get_target(&sel) {
-                            Some(t) => t.render(),
+                            Some(t) => t.render(sel == *selected),
                             None => Cell::from("??".to_string()).style(err_style),
                         });
                     }
