@@ -19,35 +19,153 @@ impl Selection {
         }
     }
 
-    pub fn make_absolute(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
+    pub fn absolute(&self, maps: &Vec<Map>, abilities: &Vec<Ability>) -> Self {
+        let mut nmap = None;
+        let mut nzone = None;
+        let mut nability = None;
+        let mut nusage = None;
         if let Some(map) = &self.map {
             if let (Some(zone), Some(m)) = (&self.zone, map.get_selected(maps)) {
-                self.zone = zone.to_index(&m.zones);
+                nzone = zone.to_index(&m.zones);
             }
-            self.map = map.to_index(maps);
+            nmap = map.to_index(maps);
         }
 
         if let Some(ability) = &self.ability {
             if let (Some(usage), Some(a)) = (&self.usage, ability.get_selected(abilities)) {
-                self.usage = usage.to_index(&a.usages);
+                nusage = usage.to_index(&a.usages);
             }
-            self.ability = ability.to_index(abilities);
+            nability = ability.to_index(abilities);
+        }
+        Self {
+            map: nmap,
+            zone: nzone,
+            ability: nability,
+            usage: nusage,
         }
     }
 
-    pub fn make_relative(&mut self, maps: &Vec<Map>, abilities: &Vec<Ability>) {
+    pub fn relative(&self, maps: &Vec<Map>, abilities: &Vec<Ability>) -> Self {
+        let mut nmap = None;
+        let mut nzone = None;
+        let mut nability = None;
+        let mut nusage = None;
         if let Some(map) = &self.map {
             if let (Some(zone), Some(m)) = (&self.zone, map.get_selected(maps)) {
-                self.zone = zone.to_name(&m.zones);
+                nzone = zone.to_name(&m.zones);
             }
-            self.map = map.to_name(maps);
+            nmap = map.to_name(maps);
         }
 
         if let Some(ability) = &self.ability {
             if let (Some(usage), Some(a)) = (&self.usage, ability.get_selected(abilities)) {
-                self.usage = usage.to_name(&a.usages);
+                nusage = usage.to_name(&a.usages);
             }
-            self.ability = ability.to_name(abilities);
+            nability = ability.to_name(abilities);
+        }
+        Self {
+            map: nmap,
+            zone: nzone,
+            ability: nability,
+            usage: nusage,
+        }
+    }
+
+    pub fn next_zone(&mut self, maps: &Vec<Map>) {
+        if let Some(map) = &self.map {
+            self.map = map.to_index(maps);
+            if let Some(Some(m)) = self.map.as_ref().map(|m| m.get_selected(maps)) {
+                if let Some(zone) = &self.zone {
+                    self.zone = zone.to_index(&m.zones);
+                }
+            }
+        }
+
+        if let (Some(msel), Some(Selector::Index(zidx))) = (&self.map, &self.zone) {
+            if let Some(m) = msel.get_selected(maps) {
+                if *zidx < m.zones.len() - 1 {
+                    self.zone = Some(Selector::Index(zidx + 1));
+                } else if let Selector::Index(midx) = msel {
+                    self.map = Some(Selector::Index((midx + 1) % maps.len()));
+                    self.zone = Some(Selector::Index(0));
+                }
+            }
+        }
+    }
+
+    pub fn prev_zone(&mut self, maps: &Vec<Map>) {
+        if let Some(map) = &self.map {
+            self.map = map.to_index(maps);
+            if let Some(Some(m)) = self.map.as_ref().map(|m| m.get_selected(maps)) {
+                if let Some(zone) = &self.zone {
+                    self.zone = zone.to_index(&m.zones);
+                }
+            }
+        }
+
+        if let (Some(msel), Some(Selector::Index(zidx))) = (&self.map, &self.zone) {
+            if *zidx == 0 {
+                if let Selector::Index(midx) = msel {
+                    let new_msel = if *midx == 0 {
+                        Selector::Index(maps.len() - 1)
+                    } else {
+                        Selector::Index(midx - 1)
+                    };
+                    self.zone = Some(Selector::Index(new_msel.get_selected(maps).unwrap().zones.len() - 1));
+                    self.map = Some(new_msel);
+                }
+            } else {
+                self.zone = Some(Selector::Index(zidx - 1));
+            }
+        }
+    }
+
+    pub fn next_usage(&mut self, abilities: &Vec<Ability>) {
+        if let Some(ability) = &self.ability {
+            self.ability = ability.to_index(abilities);
+            if let Some(Some(a)) = self.ability.as_ref().map(|m| m.get_selected(abilities)) {
+                if let Some(usage) = &self.usage {
+                    self.usage = usage.to_index(&a.usages);
+                }
+            }
+        }
+
+        if let (Some(asel), Some(Selector::Index(uidx))) = (&self.ability, &self.usage) {
+            if let Some(a) = asel.get_selected(abilities) {
+                if *uidx < a.usages.len() - 1 {
+                    self.usage = Some(Selector::Index(uidx + 1));
+                } else if let Selector::Index(aidx) = asel {
+                    self.ability = Some(Selector::Index((aidx + 1) % abilities.len()));
+                    self.usage = Some(Selector::Index(0));
+                }
+            }
+        }
+    }
+
+    pub fn prev_usage(&mut self, abilities: &Vec<Ability>) {
+        if let Some(ability) = &self.ability {
+            self.ability = ability.to_index(abilities);
+            if let Some(Some(a)) = self.ability.as_ref().map(|m| m.get_selected(abilities)) {
+                if let Some(usage) = &self.usage {
+                    self.usage = usage.to_index(&a.usages);
+                }
+            }
+        }
+
+        if let (Some(asel), Some(Selector::Index(uidx))) = (&self.ability, &self.usage) {
+            if *uidx == 0 {
+                if let Selector::Index(aidx) = asel {
+                    let new_asel = if *aidx == 0 {
+                        Selector::Index(abilities.len() - 1)
+                    } else {
+                        Selector::Index(aidx - 1)
+                    };
+                    self.usage = Some(Selector::Index(new_asel.get_selected(abilities).unwrap().usages.len() - 1));
+                    self.ability = Some(new_asel);
+                }
+            } else {
+                self.usage = Some(Selector::Index(uidx - 1));
+            }
         }
     }
 }
@@ -112,7 +230,8 @@ impl Selector {
         S: Nameable,
         // T: SliceIndex<usize, Output=S> + IntoIterator<Item = S>,
     {
-        self.get_selected_idx(vs).map(|i| Selector::Name(vs[i].name().clone()))
+        self.get_selected_idx(vs)
+            .map(|i| Selector::Name(vs[i].name().clone()))
     }
 }
 

@@ -1,9 +1,9 @@
 use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
 use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyModifiers};
 use serde::{Deserialize as Deserialise, Serialize as Serialise};
-use std::io::{self, Read, Write};
+use std::io::{self, Error, ErrorKind, Read, Write};
 use tui::{
     backend::Backend,
     layout::{Constraint, Layout},
@@ -86,8 +86,8 @@ impl App {
         loop {
             terminal.draw(|f| self.draw(f))?;
 
-            if let Event::Key(key) = event::read()? {
-                match self.input_state {
+            match event::read()? {
+                Event::Key(key) => match self.input_state {
                     InputState::Normal => match key.code {
                         KeyCode::Char('Q') => return Ok(FinalAction::Save),
                         KeyCode::Char('!') => return Ok(FinalAction::None),
@@ -171,17 +171,30 @@ impl App {
                                 InputState::edit(InputOp::Remove, InputSubject::ZoneName)
                         }
                         KeyCode::Char('c') => {
+                            if key.modifiers.contains(KeyModifiers::CONTROL) {
+                                return Err(Error::new(ErrorKind::Other, "SIGINT Caught!"));
+                            }
+
                             self.input_state =
                                 InputState::edit(InputOp::Remove, InputSubject::AbilityName)
+
                         }
                         KeyCode::Char('v') => {
                             self.input_state =
                                 InputState::edit(InputOp::Remove, InputSubject::UsageName)
                         }
-                        KeyCode::Left | KeyCode::Char('h') => self.prev_usage(),
-                        KeyCode::Up | KeyCode::Char('j') => self.prev_zone(),
-                        KeyCode::Down | KeyCode::Char('k') => self.next_zone(),
-                        KeyCode::Right | KeyCode::Char('l') => self.next_usage(),
+                        KeyCode::Left | KeyCode::Char('h') => {
+                            self.selection.prev_usage(&self.progress.abilities)
+                        }
+                        KeyCode::Down | KeyCode::Char('j') => {
+                            self.selection.next_zone(&self.progress.maps)
+                        }
+                        KeyCode::Up | KeyCode::Char('k') => {
+                            self.selection.prev_zone(&self.progress.maps)
+                        }
+                        KeyCode::Right | KeyCode::Char('l') => {
+                            self.selection.next_usage(&self.progress.abilities)
+                        }
                         _ => {}
                     },
                     InputState::Edit(ref op, ref mut buf) => match key.code {
@@ -233,12 +246,22 @@ impl App {
                                 }
                                 (InputOp::Select, subject) => {
                                     match subject {
-                                        InputSubject::MapName => self.selection.map = Some(buf.clone().into()),
-                                        InputSubject::ZoneName => self.selection.zone = Some(buf.clone().into()),
-                                        InputSubject::AbilityName => self.selection.ability = Some(buf.clone().into()),
-                                        InputSubject::UsageName => self.selection.usage = Some(buf.clone().into()),
+                                        InputSubject::MapName => {
+                                            self.selection.map = Some(buf.clone().into())
+                                        }
+                                        InputSubject::ZoneName => {
+                                            self.selection.zone = Some(buf.clone().into())
+                                        }
+                                        InputSubject::AbilityName => {
+                                            self.selection.ability = Some(buf.clone().into())
+                                        }
+                                        InputSubject::UsageName => {
+                                            self.selection.usage = Some(buf.clone().into())
+                                        }
                                     };
-                                    self.selection.make_relative(&self.progress.maps, &self.progress.abilities);
+                                    self.selection = self
+                                        .selection
+                                        .relative(&self.progress.maps, &self.progress.abilities);
                                 }
                                 (InputOp::Remove, _) => {} // TODO: implement removal
                             };
@@ -247,7 +270,8 @@ impl App {
                         KeyCode::Esc => self.input_state = InputState::Normal,
                         _ => {}
                     },
-                }
+                },
+                _ => {}
             }
         }
     }
@@ -291,33 +315,7 @@ impl App {
             f.set_cursor(rects[1].x + s.width() as u16 + 1, rects[1].y + 1)
         }
     }
-
-    fn next(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if self.items.len() - 1 <= i {
-                    0
-                } else {
-                    i + 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
-    }
-
-    fn prev(&mut self) {
-        let i = match self.state.selected() {
-            Some(i) => {
-                if i == 0 {
-                    self.items.len() - 1
-                } else {
-                    i - 1
-                }
-            }
-            None => 0,
-        };
-        self.state.select(Some(i));
+}
 
 impl From<SaveState> for App {
     fn from(s: SaveState) -> Self {
