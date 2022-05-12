@@ -170,6 +170,17 @@ impl Selection {
     }
 }
 
+impl Default for Selection {
+    fn default() -> Self {
+        Self {
+            map: Some(Selector::default()),
+            zone: Some(Selector::default()),
+            ability: Some(Selector::default()),
+            usage: Some(Selector::default()),
+        }
+    }
+}
+
 #[derive(Eq, PartialEq, Debug, Serialise, Deserialise)]
 pub enum Selector {
     Index(usize),

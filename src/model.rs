@@ -248,7 +248,6 @@ impl ProgressStore {
                 ability: Some(asel),
                 usage: Some(usel),
             } => {
-                // TODO: this assumes that the indices still match up!
                 match (
                     msel.get_selected(&self.maps),
                     asel.get_selected(&self.abilities),
@@ -282,7 +281,6 @@ impl ProgressStore {
                 ability: Some(asel),
                 usage: Some(usel),
             } => {
-                // TODO: this assumes that the indices still match up!
                 match (
                     msel.get_selected(&self.maps),
                     asel.get_selected(&self.abilities),

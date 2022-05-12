@@ -1,4 +1,4 @@
-use crate::model::{Ability, Map, ProgressStore, Usage, Zone};
+use crate::model::{Ability, Map, Nameable, ProgressStore, Usage, Zone};
 use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
@@ -177,7 +177,6 @@ impl App {
 
                             self.input_state =
                                 InputState::edit(InputOp::Remove, InputSubject::AbilityName)
-
                         }
                         KeyCode::Char('v') => {
                             self.input_state =
@@ -263,7 +262,68 @@ impl App {
                                         .selection
                                         .relative(&self.progress.maps, &self.progress.abilities);
                                 }
-                                (InputOp::Remove, _) => {} // TODO: implement removal
+                                (InputOp::Remove, InputSubject::MapName) => {
+                                    if let Some(Some(m)) =
+                                        self.selection.map.as_ref().map(|msel| {
+                                            msel.get_selected_mut(&mut self.progress.maps)
+                                        })
+                                    {
+                                        if m.name() == buf {
+                                            self.selection = Selection::default();
+                                        }
+                                        Self::remove_named(&buf, &mut self.progress.maps);
+                                    }
+                                }
+                                (InputOp::Remove, InputSubject::ZoneName) => {
+                                    if let Some(Some(map)) =
+                                        self.selection.map.as_ref().map(|msel| {
+                                            msel.get_selected_mut(&mut self.progress.maps)
+                                        })
+                                    {
+                                        if let Some(Some(z)) = self
+                                            .selection
+                                            .zone
+                                            .as_ref()
+                                            .map(|zsel| zsel.get_selected(&map.zones))
+                                        {
+                                            if z.name() == buf {
+                                                self.selection = Selection::default();
+                                            }
+                                        }
+                                        Self::remove_named(&buf, &mut map.zones);
+                                    }
+                                }
+                                (InputOp::Remove, InputSubject::AbilityName) => {
+                                    if let Some(Some(a)) =
+                                        self.selection.ability.as_ref().map(|asel| {
+                                            asel.get_selected_mut(&mut self.progress.abilities)
+                                        })
+                                    {
+                                        if a.name() == buf {
+                                            self.selection = Selection::default();
+                                        }
+                                        Self::remove_named(&buf, &mut self.progress.abilities);
+                                    }
+                                }
+                                (InputOp::Remove, InputSubject::UsageName) => {
+                                    if let Some(Some(ability)) =
+                                        self.selection.ability.as_ref().map(|asel| {
+                                            asel.get_selected_mut(&mut self.progress.abilities)
+                                        })
+                                    {
+                                        if let Some(Some(u)) = self
+                                            .selection
+                                            .usage
+                                            .as_ref()
+                                            .map(|usel| usel.get_selected(&ability.usages))
+                                        {
+                                            if u.name() == buf {
+                                                self.selection = Selection::default();
+                                            }
+                                        }
+                                        Self::remove_named(&buf, &mut ability.usages);
+                                    }
+                                }
                             };
                             self.input_state = InputState::Normal;
                         }
@@ -273,6 +333,15 @@ impl App {
                 },
                 _ => {}
             }
+        }
+    }
+
+    fn remove_named<T>(name: &String, vs: &mut Vec<T>)
+    where
+        T: Nameable + Eq,
+    {
+        if let Some(idx) = vs.iter().position(|v| v.name() == name) {
+            vs.remove(idx);
         }
     }
 
