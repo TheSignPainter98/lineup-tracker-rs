@@ -51,6 +51,7 @@ impl<'a> Renderable<Cell<'a>> for Target {
 
 impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
     fn render(&self, selected: &Selection) -> (usize, Table<'a>) {
+        let abs_selected = selected.absolute(&self.maps, &self.abilities);
         let mut primary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
         let mut secondary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
 
@@ -71,9 +72,9 @@ impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
 
         let ncols = primary_hdr.len();
         let mut rows = vec![Row::new(primary_hdr), Row::new(secondary_hdr)];
-        for m in &self.maps {
+        for (mi, m) in self.maps.iter().enumerate() {
             let mut pushed_this_map_name = false;
-            for z in &m.zones {
+            for (zi, z) in m.zones.iter().enumerate() {
                 let mut row = Vec::new();
                 row.push(Cell::from(if pushed_this_map_name {
                     "".to_string()
@@ -82,17 +83,17 @@ impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
                     m.name.clone()
                 }));
                 row.push(Cell::from(z.name.clone()));
-                for a in &self.abilities {
-                    for u in &a.usages {
+                for (ai, a) in self.abilities.iter().enumerate() {
+                    for (ui, _) in a.usages.iter().enumerate() {
                         let sel = Selection {
-                            map: Some(Selector::Name(m.name.clone())),
-                            zone: Some(Selector::Name(z.name.clone())),
-                            ability: Some(Selector::Name(a.name.clone())),
-                            usage: Some(Selector::Name(u.name.clone())),
+                            map: Some(Selector::Index(mi)),
+                            zone: Some(Selector::Index(zi)),
+                            ability: Some(Selector::Index(ai)),
+                            usage: Some(Selector::Index(ui)),
                         };
 
                         row.push(match self.get_target(&sel) {
-                            Some(t) => t.render(sel == *selected),
+                            Some(t) => t.render(sel == abs_selected),
                             None => Cell::from("??".to_string()).style(err_style),
                         });
                     }
