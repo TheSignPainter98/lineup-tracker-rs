@@ -54,16 +54,16 @@ impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
         let mut primary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
         let mut secondary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
 
-        for m in &self.maps {
-            let mut pushed_this_map_name = false;
-            for z in &m.zones {
-                primary_hdr.push(Cell::from(if pushed_this_map_name {
+        for a in &self.abilities {
+            let mut pushed_this_ability_name = false;
+            for u in &a.usages {
+                primary_hdr.push(Cell::from(if pushed_this_ability_name {
                     "".to_string()
                 } else {
-                    pushed_this_map_name = true;
-                    m.name.clone()
+                    pushed_this_ability_name = true;
+                    a.name.clone()
                 }));
-                secondary_hdr.push(Cell::from(z.name.clone()));
+                secondary_hdr.push(Cell::from(u.name.clone()));
             }
         }
 
@@ -71,25 +71,26 @@ impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
 
         let ncols = primary_hdr.len();
         let mut rows = vec![Row::new(primary_hdr), Row::new(secondary_hdr)];
-        for a in &self.abilities {
-            let mut pushed_this_ability_name = false;
-            for u in &a.usages {
+        for m in &self.maps {
+            let mut pushed_this_map_name = false;
+            for z in &m.zones {
                 let mut row = Vec::new();
-                row.push(Cell::from(if pushed_this_ability_name {
+                row.push(Cell::from(if pushed_this_map_name {
                     "".to_string()
                 } else {
-                    pushed_this_ability_name = true;
-                    a.name.clone()
+                    pushed_this_map_name = true;
+                    m.name.clone()
                 }));
-                row.push(Cell::from(u.name.clone()));
-                for m in &self.maps {
-                    for z in &m.zones {
+                row.push(Cell::from(z.name.clone()));
+                for a in &self.abilities {
+                    for u in &a.usages {
                         let sel = Selection {
                             map: Some(Selector::Name(m.name.clone())),
                             zone: Some(Selector::Name(z.name.clone())),
                             ability: Some(Selector::Name(a.name.clone())),
                             usage: Some(Selector::Name(u.name.clone())),
                         };
+
                         row.push(match self.get_target(&sel) {
                             Some(t) => t.render(sel == *selected),
                             None => Cell::from("??".to_string()).style(err_style),
