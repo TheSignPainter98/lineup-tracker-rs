@@ -29,12 +29,12 @@ impl<'a> Renderable<Cell<'a>> for Target {
             style = style.fg(Colour::Blue);
         } else {
             txt = format!("{}/{}", self.progress, self.target);
-            style = style.fg(if self.target <= self.progress {
-                Colour::Green
-            } else if self.target >> 1 <= self.progress.abs() {
+            style = style.fg(if self.progress.abs() <= self.target >> 2 {
+                Colour::Red
+            } else if self.progress < self.target {
                 Colour::Yellow
             } else {
-                Colour::Red
+                Colour::Green
             })
         };
 
