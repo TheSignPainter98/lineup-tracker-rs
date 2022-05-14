@@ -52,8 +52,30 @@ impl<'a> Renderable<Cell<'a>> for Target {
 impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
     fn render(&self, selected: &Selection) -> (usize, Table<'a>) {
         let abs_selected = selected.absolute(&self.maps, &self.abilities);
-        let mut primary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
-        let mut secondary_hdr: Vec<Cell> = vec!["", ""].iter().map(|s| Cell::from(*s)).collect();
+
+        let total_progress = self
+            .progress
+            .iter()
+            .map(|(_, t)| t.progress)
+            .reduce(|a, b| a + b)
+            .unwrap_or(0);
+        let total_target = self
+            .progress
+            .iter()
+            .map(|(_, t)| t.target)
+            .reduce(|a, b| a + b)
+            .unwrap_or(0);
+        let progress_ratio = format!("{}/{}", total_progress, total_target);
+        let progress_pcge = format!("{}%", total_progress / total_target * 100);
+
+        let mut primary_hdr: Vec<Cell> = vec![
+            Cell::from("Total").style(Style::default().fg(Colour::Blue)),
+            Cell::from(progress_ratio).style(Style::default().fg(Colour::Blue)),
+        ];
+        let mut secondary_hdr: Vec<Cell> = vec![
+            Cell::from(""),
+            Cell::from(progress_pcge).style(Style::default().fg(Colour::Blue)),
+        ];
 
         for a in &self.abilities {
             let mut pushed_this_ability_name = false;
