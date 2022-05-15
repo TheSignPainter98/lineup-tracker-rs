@@ -290,7 +290,7 @@ impl App {
                                         if m.name() == buf {
                                             self.selection = Selection::default();
                                         }
-                                        Self::remove_named(&buf, &mut self.progress.maps);
+                                        self.progress.rm_map(&buf);
                                     }
                                 }
                                 (InputOp::Remove, InputSubject::ZoneName) => {
@@ -309,7 +309,14 @@ impl App {
                                                 self.selection = Selection::default();
                                             }
                                         }
-                                        Self::remove_named(&buf, &mut map.zones);
+                                    }
+                                    if let Some(Some(Selector::Name(ref map))) = self
+                                        .selection
+                                        .map
+                                        .as_ref()
+                                        .map(|msel| msel.to_name(&self.progress.maps))
+                                    {
+                                        self.progress.rm_zone(map, &buf);
                                     }
                                 }
                                 (InputOp::Remove, InputSubject::AbilityName) => {
@@ -321,7 +328,7 @@ impl App {
                                         if a.name() == buf {
                                             self.selection = Selection::default();
                                         }
-                                        Self::remove_named(&buf, &mut self.progress.abilities);
+                                        self.progress.rm_ability(&buf);
                                     }
                                 }
                                 (InputOp::Remove, InputSubject::UsageName) => {
@@ -340,7 +347,14 @@ impl App {
                                                 self.selection = Selection::default();
                                             }
                                         }
-                                        Self::remove_named(&buf, &mut ability.usages);
+                                    }
+                                    if let Some(Some(Selector::Name(ref ability))) = self
+                                        .selection
+                                        .ability
+                                        .as_ref()
+                                        .map(|msel| msel.to_name(&self.progress.abilities))
+                                    {
+                                        self.progress.rm_usage(ability, &buf);
                                     }
                                 }
                             };
@@ -352,15 +366,6 @@ impl App {
                 },
                 _ => {}
             }
-        }
-    }
-
-    fn remove_named<T>(name: &String, vs: &mut Vec<T>)
-    where
-        T: Nameable + Eq,
-    {
-        if let Some(idx) = vs.iter().position(|v| v.name() == name) {
-            vs.remove(idx);
         }
     }
 

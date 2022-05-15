@@ -273,6 +273,41 @@ impl ProgressStore {
         }
     }
 
+    pub fn rm_map(&mut self, map: &String) {
+        self.progress.retain(|(mn, _, _, _), _| mn != map);
+        Self::remove_named(map, &mut self.maps);
+    }
+
+    pub fn rm_zone(&mut self, map: &String, zone: &String) {
+        self.progress
+            .retain(|(mn, zn, _, _), _| mn != map || zn != zone);
+        if let Some(m) = Selector::Name(map.clone()).get_selected_mut(&mut self.maps) {
+            Self::remove_named(zone, &mut m.zones);
+        }
+    }
+
+    pub fn rm_ability(&mut self, ability: &String) {
+        self.progress.retain(|(_, _, an, _), _| an != ability);
+        Self::remove_named(ability, &mut self.abilities);
+    }
+
+    pub fn rm_usage(&mut self, ability: &String, usage: &String) {
+        self.progress
+            .retain(|(_, _, an, un), _| an != ability || un != usage);
+        if let Some(a) = Selector::Name(ability.clone()).get_selected_mut(&mut self.abilities) {
+            Self::remove_named(usage, &mut a.usages);
+        }
+    }
+
+    fn remove_named<T>(name: &String, vs: &mut Vec<T>)
+    where
+        T: Nameable,
+    {
+        if let Some(idx) = vs.iter().position(|v| v.name() == name) {
+            vs.remove(idx);
+        }
+    }
+
     pub fn get_target_mut(&mut self, sel: &Selection) -> Option<&mut Target> {
         match sel {
             Selection {
