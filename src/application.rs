@@ -2,6 +2,8 @@ use crate::model::{Ability, Map, Nameable, ProgressStore, Usage, Zone};
 use crate::render::Renderable;
 use crate::selection::{Selection, Selector};
 use crossterm::event::{self, Event, KeyCode, KeyModifiers};
+use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize as Deserialise, Serialize as Serialise};
 use std::io::{self, Error, ErrorKind, Read, Write};
 use tui::{
@@ -197,50 +199,67 @@ impl App {
                         _ => {}
                     },
                     InputState::Edit(ref op, ref mut buf) => match key.code {
-                        KeyCode::Char(c) => buf.push(c),
+                        KeyCode::Char(c) => {
+                            if key.modifiers.contains(KeyModifiers::CONTROL) && c == '[' {
+                                self.input_state = InputState::Normal;
+                            } else {
+                                buf.push(c);
+                            }
+                        }
                         KeyCode::Backspace => {
                             buf.pop();
                         }
                         KeyCode::Enter => {
                             match op {
-                                (InputOp::New, InputSubject::MapName) => {
-                                    self.progress.add_map(Map::new(buf.clone()));
-                                    self.selection.map = Some(Selector::Name(buf.clone()));
-                                    self.selection.zone = None;
-                                }
-                                (InputOp::New, InputSubject::ZoneName) => {
-                                    if let Some(mi) = &self.selection.map {
-                                        let zone_selector = Selector::Name(buf.clone());
-                                        let zone = Zone::new(buf.clone());
-
-                                        if let Some(map) =
-                                            mi.get_selected_mut::<Map>(&mut self.progress.maps)
-                                        {
-                                            map.add_zone(zone);
-                                        }
-
-                                        self.progress.add_zone(&mi, &zone_selector);
-                                        self.selection.zone = Some(zone_selector);
+                                (InputOp::New, what) => {
+                                    lazy_static! {
+                                        static ref NUM_RE: Regex = Regex::new("^[0-9]+$").unwrap();
                                     }
-                                }
-                                (InputOp::New, InputSubject::AbilityName) => {
-                                    self.progress.add_ability(Ability::new(buf.clone()));
-                                    self.selection.ability = Some(Selector::Name(buf.clone()));
-                                    self.selection.usage = None;
-                                }
-                                (InputOp::New, InputSubject::UsageName) => {
-                                    if let Some(asel) = &self.selection.ability {
-                                        let usage_selector = Selector::Name(buf.clone());
-                                        let usage = Usage::new(buf.clone());
-
-                                        if let Some(ability) =
-                                            asel.get_selected_mut(&mut self.progress.abilities)
-                                        {
-                                            ability.add_usage(usage);
+                                    if NUM_RE.is_match(&buf) {
+                                        continue;
+                                    }
+                                    match what {
+                                        InputSubject::MapName => {
+                                            self.progress.add_map(Map::new(buf.clone()));
+                                            self.selection.map = Some(Selector::Name(buf.clone()));
+                                            self.selection.zone = None;
                                         }
+                                        InputSubject::ZoneName => {
+                                            if let Some(mi) = &self.selection.map {
+                                                let zone_selector = Selector::Name(buf.clone());
+                                                let zone = Zone::new(buf.clone());
 
-                                        self.progress.add_usage(&asel, &usage_selector);
-                                        self.selection.usage = Some(usage_selector);
+                                                if let Some(map) = mi.get_selected_mut::<Map>(
+                                                    &mut self.progress.maps,
+                                                ) {
+                                                    map.add_zone(zone);
+                                                }
+
+                                                self.progress.add_zone(&mi, &zone_selector);
+                                                self.selection.zone = Some(zone_selector);
+                                            }
+                                        }
+                                        InputSubject::AbilityName => {
+                                            self.progress.add_ability(Ability::new(buf.clone()));
+                                            self.selection.ability =
+                                                Some(Selector::Name(buf.clone()));
+                                            self.selection.usage = None;
+                                        }
+                                        InputSubject::UsageName => {
+                                            if let Some(asel) = &self.selection.ability {
+                                                let usage_selector = Selector::Name(buf.clone());
+                                                let usage = Usage::new(buf.clone());
+
+                                                if let Some(ability) = asel
+                                                    .get_selected_mut(&mut self.progress.abilities)
+                                                {
+                                                    ability.add_usage(usage);
+                                                }
+
+                                                self.progress.add_usage(&asel, &usage_selector);
+                                                self.selection.usage = Some(usage_selector);
+                                            }
+                                        }
                                     }
                                 }
                                 (InputOp::Select, subject) => {
