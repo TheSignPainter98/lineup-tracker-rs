@@ -66,7 +66,7 @@ impl<'a> Renderable<(usize, Table<'a>), &Selection> for ProgressStore {
             .reduce(|a, b| a + b)
             .unwrap_or(0);
         let progress_ratio = format!("{}/{}", total_progress, total_target);
-        let progress_pcge = format!("{}%", total_progress / total_target * 100);
+        let progress_pcge = format!("{}%", (total_progress as f32 / total_target as f32 * 100.0).floor());
 
         let mut primary_hdr: Vec<Cell> = vec![
             Cell::from("Total").style(Style::default().fg(Colour::Blue)),
