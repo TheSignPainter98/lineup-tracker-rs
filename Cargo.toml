@@ -5,7 +5,7 @@ edition = "2021"
 license = "GPL-3-or-later"
 keywords = [ "valorant", "cs:go", "tui", "game" ]
 readme = "README.md"
-repository = "https://github.com/TheSignPainter98/lineup-tracker-rust"
+repository = "https://github.com/TheSignPainter98/lineup-tracker-rs"
 authors = [ "kcza" ]
 description = "A minimalist progress tracker for lineups"
 
